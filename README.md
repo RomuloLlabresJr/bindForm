@@ -2,7 +2,8 @@
 
 #Overview
 
-    The bindForm plugin allows you to bind a form to an object, enabling seamless synchronization between the form fields and the object’s properties. It includes features like validation, change handling, read-only modes, history tracking, and support for nested object paths.
+    The bindForm plugin allows you to bind a form to an object, enabling seamless synchronization between the form fields and the object’s properties. 
+    It includes features like validation, change handling, read-only modes, history tracking, and support for nested object paths.
 
 #Features
     
