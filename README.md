@@ -169,4 +169,4 @@
 
 #License
 
-This plugin is open-source and licensed under the MIT License.
+None
