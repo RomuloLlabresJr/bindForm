@@ -23,7 +23,7 @@ Read-Only Mode: Disable all form fields with a single configuration.
 Include the jQuery library and the bindForm plugin in your project:
 
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script src="path/to/bindForm.js"></script>
+<script src="path/to/bindform.js"></script>
 
 #Usage
 
