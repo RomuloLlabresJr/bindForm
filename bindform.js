@@ -22,8 +22,9 @@ SOFTWARE.
 
 (function ($) {
     $.fn.bindForm = function (bindingObject, options = {}) {
-        const $form = this;
-
+        const $form = this, id = $($form).attr('id');
+        const localStorageFormKey = id +'_bindFormHistory';
+        
         if ($form.data('bindFormInitialized')) {
             console.warn(`Form "${$form.attr('id') || $form.attr('class')}" is already bound. Destroy it before reinitializing.`);
             return;
@@ -84,7 +85,7 @@ SOFTWARE.
         };
 
         const recordHistory = () => {
-           let history = JSON.parse(localStorage.getItem('bindFormHistory') || '[]');
+           let history = JSON.parse(localStorage.getItem(localStorageFormKey) || '[]');
             history.push({
                 state: JSON.stringify(bindingObject),
                 timestamp: new Date().toISOString(),
@@ -173,7 +174,7 @@ SOFTWARE.
         });
 
         $form.data('restoreHistory', (timestamp) => {
-            let history = JSON.parse(localStorage.getItem('bindFormHistory') || '[]');
+            let history = JSON.parse(localStorage.getItem(localStorageFormKey) || '[]');
             const record = history.find(h => h.timestamp === timestamp);
             if (record) {
                 Object.assign(bindingObject, JSON.parse(record.state));
@@ -184,7 +185,7 @@ SOFTWARE.
         });
 
         $form.data('getHistory', () => {
-            let history = JSON.parse(localStorage.getItem('bindFormHistory') || '[]');
+            let history = JSON.parse(localStorage.getItem(localStorageFormKey) || '[]');
             return history.map(h => h.timestamp);
         });
 
