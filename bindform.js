@@ -84,7 +84,7 @@ SOFTWARE.
         };
 
         const recordHistory = () => {
-           let history = localStorage.getItem('bindFormHistory') || [];
+           let history = JSON.parse(localStorage.getItem('bindFormHistory') || '[]');
             history.push({
                 state: JSON.stringify(bindingObject),
                 timestamp: new Date().toISOString(),
@@ -173,7 +173,7 @@ SOFTWARE.
         });
 
         $form.data('restoreHistory', (timestamp) => {
-            let history = JSON.parse(localStorage.getItem('bindFormHistory'));
+            let history = JSON.parse(localStorage.getItem('bindFormHistory') || '[]');
             const record = history.find(h => h.timestamp === timestamp);
             if (record) {
                 Object.assign(bindingObject, JSON.parse(record.state));
@@ -184,7 +184,7 @@ SOFTWARE.
         });
 
         $form.data('getHistory', () => {
-            let history = JSON.parse(localStorage.getItem('bindFormHistory'));
+            let history = JSON.parse(localStorage.getItem('bindFormHistory') || '[]');
             return history.map(h => h.timestamp);
         });
 
