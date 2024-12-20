@@ -90,7 +90,7 @@ SOFTWARE.
                 state: JSON.stringify(bindingObject),
                 timestamp: new Date().toISOString(),
             });
-            localStorage.setItem('bindFormHistory', JSON.stringify(history));
+            localStorage.setItem(localStorageFormKey, JSON.stringify(history));
         };
 
         const updateObject = (name, value, isCheckbox = false) => {
