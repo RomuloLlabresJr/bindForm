@@ -69,9 +69,6 @@ SOFTWARE.
         };
 
         let $fields = $form.find("[name]");
-
-        const history = [];
-
         const updateForm = () => {
             $fields.each(function () {
                 const $field = $(this);
@@ -87,10 +84,12 @@ SOFTWARE.
         };
 
         const recordHistory = () => {
+           let history = localStorage.getItem('bindFormHistory') || [];
             history.push({
                 state: JSON.stringify(bindingObject),
                 timestamp: new Date().toISOString(),
             });
+            localStorage.setItem('bindFormHistory', JSON.stringify(history));
         };
 
         const updateObject = (name, value, isCheckbox = false) => {
@@ -174,6 +173,7 @@ SOFTWARE.
         });
 
         $form.data('restoreHistory', (timestamp) => {
+            let history = JSON.parse(localStorage.getItem('bindFormHistory'));
             const record = history.find(h => h.timestamp === timestamp);
             if (record) {
                 Object.assign(bindingObject, JSON.parse(record.state));
@@ -184,6 +184,7 @@ SOFTWARE.
         });
 
         $form.data('getHistory', () => {
+            let history = JSON.parse(localStorage.getItem('bindFormHistory'));
             return history.map(h => h.timestamp);
         });
 
