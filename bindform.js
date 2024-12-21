@@ -13,12 +13,14 @@
         bindingObject = typeof bindingObject === 'object' && bindingObject ? bindingObject : {};
 
         const defaultOptions = {
-            debounceTime: 300,
+            debounceTime: 1000,
             validateOnChange: false,
+            allowUpdateOnFailed: true,
             validators: {},
             readOnly: false,
             defaultValues: {},
             enableMutationObserver: true,
+            validationClass: 'is-invalid', // Default invalid class
             hooks: {
                 onFieldChange: null,
                 onFormUpdate: null,
@@ -27,6 +29,13 @@
                 onFormSubmit: null,
                 handleFormSubmission: async () => true,
                 afterSubmit: null,
+                handleValidation: (field, isValid, validationClass) => {
+                    if (isValid) {
+                        field.removeClass(validationClass);
+                    } else {
+                        field.addClass(validationClass);
+                    }
+                },
             },
             oneWay: false,
         };
@@ -42,21 +51,19 @@
 
         const getNestedValue = (obj, path) => path.split('.').reduce((current, key) => current?.[key], obj);
 
-        const setNestedValue = (obj, path, value) => {
-            const keys = path.split('.');
-            const lastKey = keys.pop();
-            const target = keys.reduce((current, key) => (current[key] = current[key] || {}), obj);
-            target[lastKey] = value;
-        };
-
-        let $fields = $form.find('[name]');
-
+        const $fields = $form.find('[name]');
+        
         const updateForm = () => {
             $fields.each(function () {
                 const $field = $(this);
                 const name = $field.attr('name');
                 const value = getNestedValue(bindingObject, name) ?? settings.defaultValues[name];
                 const fieldType = $field.prop('type');
+
+                const isValid = validateField(name, value);
+                settings.hooks.handleValidation($field, isValid, settings.validationClass);
+            
+                if (!isValid && settings.validateOnChange && !settings.allowUpdateOnFailed) return;
 
                 switch (fieldType) {
                     case 'checkbox':
@@ -75,22 +82,6 @@
             });
         };
 
-        const recordHistory = () => {
-            let history = JSON.parse(localStorage.getItem(localStorageFormKey) || '[]');
-            history.push({
-                state: JSON.stringify(bindingObject),
-                timestamp: new Date().toISOString(),
-            });
-            localStorage.setItem(localStorageFormKey, JSON.stringify(history));
-        };
-
-        const updateObject = (name, value, isCheckbox = false) => {
-            recordHistory();
-            const finalValue = isCheckbox ? Boolean(value) : value;
-            setNestedValue(bindingObject, name, finalValue);
-            settings.hooks.onObjectUpdate?.(bindingObject);
-        };
-
         const validateField = (name, value) => {
             const validator = settings.validators[name];
             if (validator && !validator(value)) {
@@ -99,49 +90,113 @@
             }
             return true;
         };
-
-        const handleInputChange = debounce((event) => {
-            const $field = $(event.target);
-            const name = $field.attr('name');
-
-            if (!name) return;
-
-            const value = $field.is(':checkbox') ? $field.prop('checked') : $field.val();
-
-            if (!settings.validateOnChange || validateField(name, value)) {
-                updateObject(name, value, $field.is(':checkbox'));
-                settings.hooks.onFieldChange?.(name, value);
+        const recordHistory = (() => {
+            // Wrap recordHistory to limit repeated writes within a short timeframe.
+            let lastRecordedState = null;
+            let lastRecordedTime = 0;
+        
+            return () => {
+                const currentState = JSON.stringify(bindingObject);
+                const now = Date.now();
+        
+                // Record only if the state has changed or a reasonable time has passed.
+                if (currentState !== lastRecordedState || now - lastRecordedTime > 500) {
+                    const history = JSON.parse(localStorage.getItem(localStorageFormKey) || '[]');
+                    history.push({
+                        state: currentState,
+                        timestamp: new Date().toISOString(),
+                    });
+                    localStorage.setItem(localStorageFormKey, JSON.stringify(history));
+                    lastRecordedState = currentState;
+                    lastRecordedTime = now;
+                }
+            };
+        })();
+        
+        const updateObject = (name, value, isCheckbox = false) => {
+            const finalValue = isCheckbox ? Boolean(value) : value;
+        
+            // Use `setNestedValue` to update the object only if the value differs.
+            if(setNestedValue(bindingObject, name, finalValue)){
+                // Trigger hooks only once per actual update.
+                recordHistory();
+                settings.hooks.onObjectUpdate?.(bindingObject);
             }
+        };
+        
+        const setNestedValue = (obj, path, value) => {
+            if (!obj || typeof obj !== 'object' || typeof path !== 'string') {
+                throw new Error('Invalid arguments');
+            }
+        
+            const keys = path.split('.');
+            const lastKey = keys.pop();
+        
+            const target = keys.reduce((current, key) => {
+                if (!current[key] || typeof current[key] !== 'object') {
+                    current[key] = {};
+                }
+                return current[key];
+            }, obj);
+        
+            // Only update if the value differs.
+            if (target[lastKey] !== value) {
+                target[lastKey] = value;
+                return true;
+            }
+            return false;
+        };
+        
+        const handleInputChange = debounce(($field, event) => {
+            const name = $field.attr('name');
+            if (!name) return;
+        
+            const value = $field.is(':checkbox') ? $field.prop('checked') : $field.val();
+            const isValid = validateField(name, value);
+            settings.hooks.handleValidation($field, isValid, settings.validationClass);
+        
+            if (!isValid && settings.validateOnChange && !settings.allowUpdateOnFailed) return;
+        
+            // Update the object only once during the debounce cycle.
+            if (event) {
+                updateObject(name, value, $field.is(':checkbox'));
+            }
+        
+            settings.hooks.onFieldChange?.(name, value);
         }, settings.debounceTime);
-
-        $fields.on('input change', handleInputChange);
-
-        let proxy;
+        
+        $form.on('input change', '[name]', function (event) {
+            // Debounce event handling to prevent redundant calls.
+            handleInputChange($(this), event);
+        });
+        
         if (!settings.oneWay) {
-            proxy = new Proxy(bindingObject, {
+            const proxy = new Proxy(bindingObject, {
                 set(target, prop, value) {
                     if (target[prop] !== value) {
-                        recordHistory();
-                        setNestedValue(target, prop, value);
+                        target[prop] = value; // Update the proxy target.
                         const $field = $fields.filter(`[name="${prop}"]`);
+        
                         if ($field.is(':checkbox')) {
                             $field.prop('checked', Boolean(value));
                         } else {
                             $field.val(value);
                         }
-                        settings.hooks.onFormUpdate?.(prop, value);
+        
+                        // Prevent circular updates by bypassing the `input`/`change` event.
+                        updateObject(prop, value, $field.is(':checkbox'));
                     }
                     return true;
                 },
             });
+        
             bindingObject = proxy;
         }
-
+        
         updateForm();
 
         if (settings.enableMutationObserver) {
             const throttledMutationHandler = debounce(() => {
-                $fields = $form.find('[name]');
                 $fields.off('input change').on('input change', handleInputChange);
             }, 200);
 
@@ -158,34 +213,22 @@
         }
 
         const validateForm = () => {
-            let isValid = true;
-            $form.find('input, select, textarea').each(function () {
-                const $field = $(this);
+            return $fields.toArray().every((field) => {
+                const $field = $(field);
                 const name = $field.attr('name');
-                const value = $field.val();
-                if (!validateField(name, value)) {
-                    isValid = false;
-                    return false;
-                }
+                return validateField(name, $field.val());
             });
-            return isValid;
         };
 
         $form.on('submit', async function (e) {
             e.preventDefault();
 
-            if (!validateForm()) {
-                return;
-            }
+            if (!validateForm()) return;
 
-            if (settings.hooks.onFormSubmit) {
-                const shouldSubmit = await settings.hooks.onFormSubmit(bindingObject, e);
-                if (shouldSubmit === false) {
-                    return;
-                }
-            }
+            const shouldSubmit = await settings.hooks.onFormSubmit?.(bindingObject, e);
+            if (shouldSubmit === false) return;
+
             const result = await settings.hooks.handleFormSubmission(bindingObject, e);
-
             settings.hooks.afterSubmit?.(result, bindingObject, e);
         });
 
@@ -226,10 +269,7 @@
 
     $.fn.unbindForm = function () {
         const destroyFn = this.data('bindFormDestroy');
-        if (destroyFn) {
-            destroyFn();
-        } else {
-            console.warn(`Form "${this.attr('id') || this.attr('class')}" was not initialized with bindForm.`);
-        }
+        if (destroyFn) destroyFn();
+        else console.warn(`Form "${this.attr('id') || this.attr('class')}" was not initialized with bindForm.`);
     };
 })(jQuery);

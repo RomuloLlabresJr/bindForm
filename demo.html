@@ -4,22 +4,39 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BindForm Demo</title>
+
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
     <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    
     <script src="bindform.js"></script>
 </head>
 <body>
-    <h1>BindForm Demo</h1>
-     
-    <form id="myForm">
-        <input type="text" name="firstName" placeholder="First Name">
-        <input type="text" name="lastName" placeholder="Last Name">
-        <input type="checkbox" name="isSubscribed"> Subscribe to Newsletter
-        <select name="preferences.theme">
-            <option value="light">Light</option>
-            <option value="dark">Dark</option>
-        </select>
-    </form>
+     <div class="container mt-5">
+        <h1 class="mb-4">BindForm Demo</h1>
+        <form id="myForm" class="form-group">
+            <div class="form-group">
+                <input type="text" name="firstName" placeholder="First Name" class="form-control mb-2">
+            </div>
+            <div class="form-group">
+                <input type="text" name="lastName" placeholder="Last Name" class="form-control mb-2">
+            </div>
+            <div class="form-group form-check">
+                <input type="checkbox" name="isSubscribed" class="form-check-input">
+                <label class="form-check-label">Subscribe to Newsletter</label>
+            </div>
+            <div class="form-group">
+                <label for="preferences-theme">Theme Preferences</label>
+                <select name="preferences.theme" id="preferences-theme" class="form-control">
+                    <option value="light">Light</option>
+                    <option value="dark">Dark</option>
+                </select>
+            </div>
+        </form>
+    </div>
+    <div id="qunit"></div>
+    <div id="qunit-fixture"></div>
+  
 
     <script>
         const myObject = {
@@ -34,7 +51,7 @@
     
     var proxyObject = $("#myForm").bindForm(myObject, {
         validateOnChange: true,
-        debounceTime: 200,
+        debounceTime: 1000,
         validators: {
             firstName: (value) => value.trim() !== "",
         },
@@ -47,6 +64,22 @@
             },
         },
     });
+    
+    const newState = {
+        firstName: "",
+        lastName: "Doex",
+        isSubscribed: false,
+        preferences: {
+            theme: "dark",
+            notifications: true,
+        },
+    };
+
+    // Retrieve the importState handler and invoke it with the new state.
+    const importStateHandler = $('#myForm').data('importState');
+    if (importStateHandler) {
+        importStateHandler(newState);
+    }
 
 
 
