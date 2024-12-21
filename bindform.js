@@ -20,6 +20,7 @@
             readOnly: false,
             defaultValues: {},
             enableMutationObserver: true,
+            historyLimit : 10,
             validationClass: 'is-invalid', // Default invalid class
             hooks: {
                 onFieldChange: null,
@@ -106,6 +107,14 @@
                         state: currentState,
                         timestamp: new Date().toISOString(),
                     });
+
+                    // Check and enforce the storage limit.
+                    const historyLimit = settings.historyLimit || 10; // Default limit to 50 if not set in settings.
+                    if (history.length > historyLimit) {
+                        // Slice the history to keep only the most recent entries.
+                        history = history.slice(-historyLimit);
+                    }
+
                     localStorage.setItem(localStorageFormKey, JSON.stringify(history));
                     lastRecordedState = currentState;
                     lastRecordedTime = now;
@@ -231,7 +240,7 @@
                 recordHistory();
             }, settings.autoSave * 60 * 1000);
         }
-        
+
 
         $form.on('submit', async function (e) {
             e.preventDefault();
