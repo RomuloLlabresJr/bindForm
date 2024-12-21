@@ -45,6 +45,9 @@ SOFTWARE.
                 onFormUpdate: null,
                 onObjectUpdate: null,
                 onValidationFail: null,
+                onFormSubmit: null,
+                SubmitForm: async () => true,
+                afterSubmit: null, // New hook for after submit
             },
             oneWay: false,
         };
@@ -75,11 +78,24 @@ SOFTWARE.
                 const $field = $(this);
                 const name = $field.attr("name");
                 const value = getNestedValue(bindingObject, name) ?? settings.defaultValues[name];
+                const fieldType = $field.prop('type');
+        
+                switch (fieldType) {
+                    case 'checkbox':
+                        $field.prop('checked', Boolean(value));
+                        break;
+        
+                    case 'radio':
+                        $field.prop('checked', $field.val() === String(value));
+                        break;
+        
+                    case 'select-one':
+                    case 'select-multiple':
+                        $field.val(value || '').trigger('change'); // Trigger change to update dependent UI if needed
+                        break;
+                   default:
+                        $field.val(value || '');
 
-                if ($field.is(":checkbox")) {
-                    $field.prop("checked", Boolean(value));
-                } else {
-                    $field.val(value || '');
                 }
             });
         };
