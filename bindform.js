@@ -102,7 +102,7 @@
         
                 // Record only if the state has changed or a reasonable time has passed.
                 if (currentState !== lastRecordedState || now - lastRecordedTime > 500) {
-                    const history = JSON.parse(localStorage.getItem(localStorageFormKey) || '[]');
+                    let history = JSON.parse(localStorage.getItem(localStorageFormKey) || '[]');
                     history.push({
                         state: currentState,
                         timestamp: new Date().toISOString(),
