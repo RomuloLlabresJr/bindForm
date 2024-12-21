@@ -18,15 +18,15 @@
             validators: {},
             readOnly: false,
             defaultValues: {},
-            enableMutationObserver : true,
+            enableMutationObserver: true,
             hooks: {
                 onFieldChange: null,
                 onFormUpdate: null,
                 onObjectUpdate: null,
                 onValidationFail: null,
                 onFormSubmit: null,
-                handleFormSubmission : async () => true,
-                afterSubmit: null, // New hook for after submit
+                handleFormSubmission: async () => true,
+                afterSubmit: null,
             },
             oneWay: false,
         };
@@ -57,27 +57,23 @@
                 const name = $field.attr('name');
                 const value = getNestedValue(bindingObject, name) ?? settings.defaultValues[name];
                 const fieldType = $field.prop('type');
-        
+
                 switch (fieldType) {
                     case 'checkbox':
                         $field.prop('checked', Boolean(value));
                         break;
-        
                     case 'radio':
                         $field.prop('checked', $field.val() === String(value));
                         break;
-        
                     case 'select-one':
                     case 'select-multiple':
-                        $field.val(value || '').trigger('change'); // Trigger change to update dependent UI if needed
+                        $field.val(value || '').trigger('change');
                         break;
-                   default:
+                    default:
                         $field.val(value || '');
-
                 }
             });
         };
-        
 
         const recordHistory = () => {
             let history = JSON.parse(localStorage.getItem(localStorageFormKey) || '[]');
@@ -107,17 +103,16 @@
         const handleInputChange = debounce((event) => {
             const $field = $(event.target);
             const name = $field.attr('name');
-        
+
             if (!name) return;
-        
+
             const value = $field.is(':checkbox') ? $field.prop('checked') : $field.val();
-        
+
             if (!settings.validateOnChange || validateField(name, value)) {
                 updateObject(name, value, $field.is(':checkbox'));
                 settings.hooks.onFieldChange?.(name, value);
             }
         }, settings.debounceTime);
-        
 
         $fields.on('input change', handleInputChange);
 
@@ -144,8 +139,7 @@
 
         updateForm();
 
-
-        if(settings.enableMutationObserver) {
+        if (settings.enableMutationObserver) {
             const throttledMutationHandler = debounce(() => {
                 $fields = $form.find('[name]');
                 $fields.off('input change').on('input change', handleInputChange);
@@ -163,28 +157,27 @@
             $fields.prop('disabled', true);
         }
 
-
-        const validateForm = ()=>{
+        const validateForm = () => {
+            let isValid = true;
             $form.find('input, select, textarea').each(function () {
                 const $field = $(this);
                 const name = $field.attr('name');
                 const value = $field.val();
-                let result =  validateField(name, value);
-                if (!result) {
+                if (!validateField(name, value)) {
+                    isValid = false;
                     return false;
                 }
             });
-            return true;
-        }
+            return isValid;
+        };
 
-        // Add submit handler
         $form.on('submit', async function (e) {
             e.preventDefault();
 
-            if(!validateForm()){
+            if (!validateForm()) {
                 return;
             }
-            
+
             if (settings.hooks.onFormSubmit) {
                 const shouldSubmit = await settings.hooks.onFormSubmit(bindingObject, e);
                 if (shouldSubmit === false) {
@@ -192,20 +185,16 @@
                 }
             }
             const result = await settings.hooks.handleFormSubmission(bindingObject, e);
-            
-            // Trigger afterSubmit
+
             settings.hooks.afterSubmit?.(result, bindingObject, e);
         });
 
-        // Add importState and exportState
         $form.data('importState', (newState) => {
             Object.assign(bindingObject, newState);
             updateForm();
         });
 
-        $form.data('exportState', () => {
-            return { ...bindingObject };
-        });
+        $form.data('exportState', () => ({ ...bindingObject }));
 
         $form.data('bindFormDestroy', () => {
             $fields.off('input change');
