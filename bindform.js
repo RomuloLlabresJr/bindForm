@@ -91,33 +91,44 @@
             }
             return true;
         };
+
         const recordHistory = (() => {
-            // Wrap recordHistory to limit repeated writes within a short timeframe.
-            let lastRecordedState = null;
-            let lastRecordedTime = 0;
+            const stateKey = `${localStorageFormKey}_state`; // Key to store lastRecordedState and lastRecordedTime.
         
             return () => {
                 const currentState = JSON.stringify(bindingObject);
                 const now = Date.now();
         
+                // Retrieve last recorded state and time from localStorage.
+                let stateData = JSON.parse(localStorage.getItem(stateKey) || '{}');
+                let lastRecordedState = stateData.lastRecordedState || null;
+                let lastRecordedTime = stateData.lastRecordedTime || 0;
+        
                 // Record only if the state has changed or a reasonable time has passed.
                 if (currentState !== lastRecordedState || now - lastRecordedTime > 500) {
                     let history = JSON.parse(localStorage.getItem(localStorageFormKey) || '[]');
+        
+                    // Add the new history entry.
                     history.push({
                         state: currentState,
                         timestamp: new Date().toISOString(),
                     });
-
+        
                     // Check and enforce the storage limit.
-                    const historyLimit = settings.historyLimit || 10; // Default limit to 50 if not set in settings.
+                    const historyLimit = settings.historyLimit || 10; // Default limit to 10 if not set in settings.
                     if (history.length > historyLimit) {
-                        // Slice the history to keep only the most recent entries.
-                        history = history.slice(-historyLimit);
+                        history = history.slice(-historyLimit); // Keep only the last `historyLimit` entries.
                     }
-
+        
+                    // Save updated history to localStorage.
                     localStorage.setItem(localStorageFormKey, JSON.stringify(history));
-                    lastRecordedState = currentState;
-                    lastRecordedTime = now;
+        
+                    // Update and save last recorded state and time.
+                    stateData = {
+                        lastRecordedState: currentState,
+                        lastRecordedTime: now,
+                    };
+                    localStorage.setItem(stateKey, JSON.stringify(stateData));
                 }
             };
         })();

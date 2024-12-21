@@ -52,7 +52,7 @@
     var proxyObject = $("#myForm").bindForm(myObject, {
         validateOnChange: true,
         debounceTime: 1000,
-        autoSave : .25, // minutes
+        autoSave : 0, // minutes
         validators: {
             firstName: (value) => value.trim() !== "",
         },
