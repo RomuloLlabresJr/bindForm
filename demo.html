@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BindForm Demo</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script src="bindform.js"></script>
+</head>
+<body>
+    <h1>BindForm Demo</h1>
+     
+    <form id="myForm">
+        <input type="text" name="firstName" placeholder="First Name">
+        <input type="text" name="lastName" placeholder="Last Name">
+        <input type="checkbox" name="isSubscribed"> Subscribe to Newsletter
+        <select name="preferences.theme">
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+        </select>
+    </form>
+
+    <script>
+        const myObject = {
+        firstName: "John",
+        lastName: "Doe",
+        isSubscribed: true,
+        preferences: {
+            theme: "dark",
+            notifications: true,
+        },
+    };
+    
+    var proxyObject = $("#myForm").bindForm(myObject, {
+        validateOnChange: true,
+        debounceTime: 200,
+        validators: {
+            firstName: (value) => value.trim() !== "",
+        },
+        hooks: {
+            onFieldChange: (name, value) => {
+                console.log(`Field changed: ${name} = ${value}`);
+            },
+            onValidationFail: (name, value) => {
+                console.error(`Validation failed for ${name}: ${value}`);
+            },
+        },
+    });
+
+
+
+    </script>
+</body>
+</html>
