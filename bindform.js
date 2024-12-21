@@ -118,8 +118,11 @@
         
             // Use `setNestedValue` to update the object only if the value differs.
             if(setNestedValue(bindingObject, name, finalValue)){
+
                 // Trigger hooks only once per actual update.
-                recordHistory();
+                if(settings.autoSave == 0){
+                    recordHistory();
+                }
                 settings.hooks.onObjectUpdate?.(bindingObject);
             }
         };
@@ -220,6 +223,16 @@
             });
         };
 
+        let autoSaveInterval = null;
+
+        if (settings.autoSave > 0) {
+            autoSaveInterval = setInterval(() => {
+                console.log('Auto-saving form...');
+                recordHistory();
+            }, settings.autoSave * 60 * 1000);
+        }
+        
+
         $form.on('submit', async function (e) {
             e.preventDefault();
 
@@ -242,9 +255,11 @@
         $form.data('bindFormDestroy', () => {
             $fields.off('input change');
             $form.off('submit');
-            observer.disconnect();
+            observer?.disconnect?.();
+            if(autoSaveInterval) clearInterval(autoSaveInterval);
             $form.removeData('bindFormInitialized').removeData('bindFormDestroy');
         });
+        
 
         $form.data('restoreHistory', (timestamp) => {
             const history = JSON.parse(localStorage.getItem(localStorageFormKey) || '[]');
