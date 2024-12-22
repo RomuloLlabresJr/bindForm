@@ -76,20 +76,36 @@
     
     Default Options
     
-    const defaultOptions = {
-        debounceTime: 300,             // Delay in ms for handling input changes
-        validateOnChange: false,       // Perform validation on field change
-        validators: {},                // Custom field validators
-        readOnly: false,               // Set form fields to read-only mode
-        defaultValues: {},             // Default values for fields
-        hooks: {                       // Lifecycle hooks
-            onFieldChange: null,
-            onFormUpdate: null,
-            onObjectUpdate: null,
-            onValidationFail: null,
-        },
-        oneWay: false,                 // Disable two-way binding if true
-    };
+      const defaultOptions = {
+            debounceTime: 1000,
+            validateOnChange: false,
+            allowUpdateOnFailed: true,
+            validators: {},
+            readOnly: false,
+            defaultValues: {},
+            showHistory: true,
+            enableMutationObserver: true,
+            encrypt: true,
+            historyLimit: 10,
+            validationClass: 'is-invalid', // Default invalid class
+            hooks: {
+                onFieldChange: null,
+                onFormUpdate: null,
+                onObjectUpdate: null,
+                onValidationFail: null,
+                onFormSubmit: null,
+                handleFormSubmission: async () => true,
+                afterSubmit: null,
+                handleValidation: (field, isValid, validationClass) => {
+                    if (isValid) {
+                        field.removeClass(validationClass);
+                    } else {
+                        field.addClass(validationClass);
+                    }
+                },
+            },
+            oneWay: false,
+        };
 
 #Example of Passing Options
 
