@@ -165,7 +165,22 @@ SOFTWARE.
                 };
             };
 
-            const getNestedValue = (obj, path) => path.split('.').reduce((current, key) => current?.[key], obj);
+            const getNestedValue = (() => {
+                const cache = new Map();
+                
+                return (obj, path) => {
+                    const cacheKey = JSON.stringify({ obj, path });
+                    if (cache.has(cacheKey)) {
+                        console.log('Value retrieved from cache');
+                        return cache.get(cacheKey);
+                    }
+                
+                    const value = path.split('.').reduce((current, key) => current?.[key], obj);
+                    cache.set(cacheKey, value);
+                    return value;
+                };
+            })();
+              
 
             const $fields = $form.find('[name]');
 
@@ -314,28 +329,44 @@ SOFTWARE.
                 }
             };
 
-            const setNestedValue = (obj, path, value) => {
-                if (!obj || typeof obj !== 'object' || typeof path !== 'string') {
+            const setNestedValue = (() => {
+                const cache = new Map();
+              
+                return (obj, path, value) => {
+                  if (!obj || typeof obj !== 'object' || typeof path !== 'string') {
                     throw new Error('Invalid arguments');
-                }
-
-                const keys = path.split('.');
-                const lastKey = keys.pop();
-
-                const target = keys.reduce((current, key) => {
+                  }
+              
+                  const cacheKey = JSON.stringify({ obj, path });
+                  const cachedValue = cache.get(cacheKey);
+              
+                  // Check if the value is already cached and the same
+                  if (cachedValue === value) {
+                    console.log('value is already cached and the same');
+                    return false;
+                  }
+              
+                  const keys = path.split('.');
+                  const lastKey = keys.pop();
+              
+                  const target = keys.reduce((current, key) => {
                     if (!current[key] || typeof current[key] !== 'object') {
-                        current[key] = {};
+                      current[key] = {};
                     }
                     return current[key];
-                }, obj);
-
-                // Only update if the value differs.
-                if (target[lastKey] !== value) {
+                  }, obj);
+              
+                  // Only update the value if it's different
+                  if (target[lastKey] !== value) {
                     target[lastKey] = value;
+                    cache.set(cacheKey, value); // Update the cache
                     return true;
-                }
-                return false;
-            };
+                  }
+              
+                  return false;
+                };
+              })();
+              
 
             const handleInputChange = debounce(($field, event) => {
                 const name = $field.attr('name');
