@@ -132,11 +132,15 @@ SOFTWARE.
                 validators: {},
                 readOnly: false,
                 defaultValues: {},
-                showHistory: true,
                 enableMutationObserver: true,
                 encrypt: true,
-                historyLimit: 10,
+             
                 validationClass: 'is-invalid', // Default invalid class
+                historySettings : {
+                    $container : $(),
+                    showHistory : true,
+                    historyLimit: 10,
+                },
                 hooks: {
                     onFieldChange: null,
                     onFormUpdate: null,
@@ -287,12 +291,26 @@ SOFTWARE.
             })();
 
             const showRecordHistory = () => {
-                if (settings.showHistory) {
+
+                let { showHistory, $container } = settings.historySettings;
+
+
+                $container = $container.length > 0 
+                        ? $container 
+                        : $form.find('#history_container');
+
+                // If #history_container doesn't exist inside the form, create it
+                if ($container.length === 0) {
+                    $container = $('<div>', { id: 'history_container', class: 'history-container' });
+                    $form.append($container);
+                }
+
+                if (showHistory) {
                     // Remove existing list if it exists
-                    $('#history_list').remove();
+                    $container.empty();
             
                     // Create a new history list
-                    const $historyList = $('<ul id="history_list">').appendTo($form);
+                    const $historyList = $('<ul id="history_list">').appendTo($container);
             
                     // Retrieve and decrypt history
                     const history = decrypt(localStorage.getItem(localStorageFormKey) || '') || [];
@@ -394,6 +412,8 @@ SOFTWARE.
             if (!settings.oneWay) {
                 const proxy = new Proxy(bindingObject, {
                     set(target, prop, value) {
+
+                        console.log('invoking proxy setting')
                         if (target[prop] !== value) {
                             target[prop] = value; // Update the proxy target.
                             const $field = $fields.filter(`[name="${prop}"]`);
@@ -406,6 +426,8 @@ SOFTWARE.
 
                             // Prevent circular updates by bypassing the `input`/`change` event.
                             updateObject(prop, value, $field.is(':checkbox'));
+                            updateForm();
+                        
                         }
                         return true;
                     },
