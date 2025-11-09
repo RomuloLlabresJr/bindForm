@@ -139,7 +139,7 @@ SOFTWARE.
                 historySettings : {
                     $container : $(),
                     showHistory : true,
-                    historyLimit: 10,
+                    historyLimit: 100,
                 },
                 hooks: {
                     onFieldChange: null,
@@ -270,7 +270,7 @@ SOFTWARE.
                         });
 
                         // Check and enforce the storage limit.
-                        const historyLimit = settings.historyLimit || 10; // Default limit to 10 if not set in settings.
+                        const historyLimit = settings.historyLimit; // Default limit to 10 if not set in settings.
                         if (history.length > historyLimit) {
                             history = history.slice(-historyLimit); // Keep only the last `historyLimit` entries.
                         }
@@ -410,28 +410,46 @@ SOFTWARE.
             });
 
             if (!settings.oneWay) {
-                const proxy = new Proxy(bindingObject, {
-                    set(target, prop, value) {
 
-                        console.log('invoking proxy setting')
-                        if (target[prop] !== value) {
-                            target[prop] = value; // Update the proxy target.
-                            const $field = $fields.filter(`[name="${prop}"]`);
+            const recordHistoryDebounced = debounce(recordHistory, 300);
 
-                            if ($field.is(':checkbox')) {
-                                $field.prop('checked', Boolean(value));
-                            } else {
-                                $field.val(value);
-                            }
+            // Keep a snapshot of previous state
+            let prevState = { ...bindingObject };
 
-                            // Prevent circular updates by bypassing the `input`/`change` event.
-                            updateObject(prop, value, $field.is(':checkbox'));
-                            updateForm();
-                        
+            const proxy = new Proxy(bindingObject, {
+                set(target, prop, value) {
+                    if (target[prop] !== value) {
+                        console.log('invoking proxy setting:', prop);
+
+                        // Update proxy target
+                        target[prop] = value;
+
+                        // Locate corresponding field
+                        const $field = $fields.filter(`[name="${prop}"]`);
+
+                        // Update DOM field value
+                        if ($field.is(':checkbox')) {
+                            $field.prop('checked', Boolean(value));
+                        } else {
+                            $field.val(value);
                         }
-                        return true;
-                    },
-                });
+
+                        // Prevent circular updates
+                        updateObject(prop, value, $field.is(':checkbox'));
+                        updateForm();
+
+                        // Check if object has changed since last snapshot
+                        const changed = JSON.stringify(prevState) !== JSON.stringify(target);
+
+                        if (changed) {
+                            recordHistoryDebounced(); // only fires once after all rapid changes
+                            prevState = { ...target }; // update snapshot
+                        }
+                    }
+
+                    return true;
+                },
+            });
 
                 bindingObject = proxy;
             }
@@ -516,7 +534,7 @@ SOFTWARE.
                 return history.map(h => h.timestamp);
             });
 
-            $form.data('getProxy', () => proxy || bindingObject);
+            $form.data('getProxy', () => bindingObject);
 
             return bindingObject;
 

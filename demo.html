@@ -97,6 +97,22 @@
         });
 
 
+        setTimeout(() => {
+
+        Object.assign(bindingObject, {
+          firstName: "another object assigned call",
+          lastName: "Smith",
+          isSubscribed: false,
+          preferences: {
+            theme: "light",
+            notifications: false,
+          },
+        });
+
+
+      }, 3000);
+
+
         
         const newState = {
           firstName: "from importState",
