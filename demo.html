@@ -48,6 +48,12 @@
             <option value="light">Light</option>
             <option value="dark">Dark</option>
           </select>
+
+          <div class="form-group form-check">
+            <input type="checkbox" name="preferences.notifications" class="form-check-input" />
+            <label class="form-check-label">allow notifications</label>
+          </div>
+            
         </div>
       </form>
     </div>
@@ -62,7 +68,7 @@
           isSubscribed: true,
           preferences: {
             theme: "dark",
-            notifications: true,
+            notifications: false,
           },
         };
 
@@ -92,7 +98,7 @@
           isSubscribed: false,
           preferences: {
             theme: "light",
-            notifications: false,
+            notifications: true,
           },
         });
 
