@@ -175,6 +175,53 @@
         },
     });
 
+    // using object design will update the object properties and the form;
+    // sample 2 of using Object.assign;
+
+     Object.assign(user, {
+          firstName: "from object assign",
+          lastName: "Smith",
+          isSubscribed: false,
+          preferences: {
+            theme: "light",
+            notifications: true,
+          },
+        });
+
+
+        // sample 3 adding time out to update later; 
+        // to simulate changes after eg. requesting new data via ajax.
+        
+        setTimeout(() => {
+
+            Object.assign(user, {
+              firstName: "another object assigned call",
+              lastName: "Smith",
+              isSubscribed: false,
+              preferences: {
+                theme: "light",
+                notifications: false,
+              },
+            });
+      }, 3000);
+
+
+        /// another sample using form method importState;
+        
+        const newState = {
+          firstName: "from importState",
+          lastName: "Doex",
+          isSubscribed: false,
+          preferences: {
+            theme: "dark",
+            notifications: true,
+          },
+        };
+
+        $("#myForm").data("importState")(newState);
+
+    
+
 #Notes
 
     Checkbox fields automatically handle true/false values.
