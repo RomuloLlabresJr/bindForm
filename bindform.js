@@ -24,13 +24,94 @@ SOFTWARE.
 
 (function ($) {
 
+
+
+        const ObjectCompressorHelper = (function () {
+            let pakoInstance = null;
+
+            // Dynamically load pako library asynchronously
+            async function loadPako() {
+                if (pakoInstance) return pakoInstance;
+                if (typeof window.pako !== 'undefined') {
+                    pakoInstance = window.pako;
+                    return pakoInstance;
+                }
+
+                const script = document.createElement('script');
+                script.src = "https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js";
+                script.async = true;
+                document.head.appendChild(script);
+
+                await new Promise((resolve, reject) => {
+                    script.onload = () => {
+                        pakoInstance = window.pako;
+                        resolve();
+                    };
+                    script.onerror = () => reject(new Error('Failed to load pako library.'));
+                });
+
+                return pakoInstance;
+            }
+
+            // Synchronous compressor API (assumes loadPako() was called before use)
+           function compress(obj) {
+                if (!pakoInstance) {
+                    console.error('Pako not loaded. Call ObjectCompressorHelper.loadPako() first.');
+                    return null;
+                }
+
+                try {
+                    const json = JSON.stringify(obj);
+                    const originalSize = new TextEncoder().encode(json).length;
+
+                    const uint8 = new TextEncoder().encode(json);
+                    const compressed = pakoInstance.deflate(uint8);
+                    const base64 = btoa(String.fromCharCode(...compressed));
+
+                    const compressedSize = compressed.length;
+                    console.log(`Compression: original size = ${originalSize} bytes, compressed size = ${compressedSize} bytes, reduction = ${(100 * (originalSize - compressedSize) / originalSize).toFixed(2)}%`);
+
+                    return base64;
+                } catch (e) {
+                    console.error('Compression error:', e);
+                    return null;
+                }
+            }
+
+            function decompress(base64) {
+                if (!pakoInstance) {
+                    console.error('Pako not loaded. Call ObjectCompressorHelper.loadPako() first.');
+                    return null;
+                }
+
+                try {
+                    const binary = atob(base64);
+                    const compressed = Uint8Array.from(binary, c => c.charCodeAt(0));
+                    const decompressed = pakoInstance.inflate(compressed);
+                    const json = new TextDecoder().decode(decompressed);
+
+                    console.log(`Decompression: compressed size = ${compressed.length} bytes, decompressed size = ${decompressed.length} bytes`);
+
+                    return JSON.parse(json);
+                } catch (e) {
+                    console.error('Decompression error:', e);
+                    return null;
+                }
+            }
+
+
+            return { compress, decompress, loadPako };
+        })();
+
+
+
     const CryptoHelper = (async (useEncryption) => {
         let isLoaded = false; // Tracks if CryptoJS is loaded
 
         if (!useEncryption) {
             return {
                 encrypt: (secretKey, data) => data,
-                decrypt: (secretKey, encrypted) => encrypted,
+                decrypt: (secretKey, data) => data,
                 generateSecretKey: () => '',
             }
         }
@@ -74,6 +155,13 @@ SOFTWARE.
     
         // Wait for the CryptoJS to load
         await loadJS();
+
+        let useCompression = true;
+        if(useCompression == true) {
+             await ObjectCompressorHelper.loadPako();
+        };
+
+       
     
         // Return the methods after ensuring CryptoJS is loaded
         return {
@@ -83,20 +171,48 @@ SOFTWARE.
                     console.error('CryptoJS is not loaded yet.');
                     return;
                 }
-                return CryptoJS.AES.encrypt(JSON.stringify(data), secretKey).toString();
+                
+                const compressed = ObjectCompressorHelper.compress(data);
+
+                return CryptoJS.AES.encrypt(JSON.stringify(compressed), secretKey).toString();
             },
     
-            decrypt: function (secretKey, encrypted) {
-                if(encrypted == null) return null;
+             decrypt: function (secretKey, encrypted) {
+                if (encrypted == null) return null;
                 if (!isLoaded) {
                     console.error('CryptoJS is not loaded yet.');
-                    return;
+                    return null;
                 }
-                const bytes = CryptoJS.AES.decrypt(encrypted, secretKey);
-                return JSON.parse(bytes.toString(CryptoJS.enc.Utf8));
+
+                try {
+                    // AES decrypt -> yields JSON.stringify(compressedBase64)
+                    const bytes = CryptoJS.AES.decrypt(encrypted, secretKey);
+                    const decrypted = bytes.toString(CryptoJS.enc.Utf8); // should be a JSON string like: "\"base64...\""
+
+                    if (!decrypted) {
+                        console.warn('Decryption returned empty string.');
+                        return null;
+                    }
+
+                    // Parse the JSON to recover the original compressed base64 string
+                    let compressedBase64;
+                    try {
+                        compressedBase64 = JSON.parse(decrypted);
+                    } catch (e) {
+                        // If it wasn't JSON (unexpected), assume it's the raw base64
+                        compressedBase64 = decrypted;
+                    }
+
+                    // Decompress synchronously
+                    const obj = ObjectCompressorHelper.decompress(compressedBase64);
+                    return obj;
+                } catch (e) {
+                    console.error('Error during decrypt/decompress:', e);
+                    return null;
+                }
             },
     
-            generateSecretKey: function (formId) {
+            generateSecretKey: async function (formId) {
                 if (!isLoaded) {
                     console.error('CryptoJS is not loaded yet.');
                     return;
@@ -104,8 +220,42 @@ SOFTWARE.
                 if (!formId) {
                     throw new Error('Form ID is required to generate a secret key.');
                 }
-                const salt = formId; // Use the form ID as the salt
-                return CryptoJS.HmacSHA256(formId, salt).toString(CryptoJS.enc.Hex);
+
+                // Helper to get the local IP using WebRTC
+                async function getLocalIP() {
+                    return new Promise((resolve, reject) => {
+                        const pc = new RTCPeerConnection({ iceServers: [] });
+                        pc.createDataChannel('');
+                        pc.createOffer()
+                            .then(offer => pc.setLocalDescription(offer))
+                            .catch(reject);
+
+                        pc.onicecandidate = (event) => {
+                            if (!event || !event.candidate) return;
+                            const candidate = event.candidate.candidate;
+                            const match = candidate.match(/([0-9]{1,3}(\.[0-9]{1,3}){3})/);
+                            if (match) {
+                                resolve(match[1]);
+                                pc.close();
+                            }
+                        };
+
+                        setTimeout(() => {
+                            resolve('127.0.0.1'); // fallback if local IP not detected
+                            pc.close();
+                        }, 1000);
+                    });
+                }
+
+                const localIP = await getLocalIP();
+                const combined = formId + '|' + localIP;
+                console.log(`Generating secure key using form ID "${formId}" and local IP "${localIP}"`);
+                // Derive a strong key using SHA-256
+                const hash = CryptoJS.SHA256(combined).toString(CryptoJS.enc.Hex);
+
+                console.log(`Generated secure key for form "${formId}" with IP ${localIP}:`, hash);
+
+                return hash;
             }
         };
     });
@@ -230,7 +380,7 @@ SOFTWARE.
                         
            const cryptoHelper =  await CryptoHelper(settings.encrypt);
 
-            const _SecretKey = settings.encrypt ? cryptoHelper.generateSecretKey(id) : id;
+            const _SecretKey = settings.encrypt ? await cryptoHelper.generateSecretKey(id) : id;
 
             const encrypt = (data) => {
                 if (data == null) return null;
