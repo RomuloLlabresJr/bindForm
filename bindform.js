@@ -698,3 +698,5 @@ SOFTWARE.
         else console.warn(`Form "${this.attr('id') || this.attr('class')}" was not initialized with bindForm.`);
     };
 })(jQuery);
+
+// # sourceMappingURL=bindform.js.map
